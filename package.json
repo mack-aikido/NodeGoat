@@ -6,6 +6,7 @@
   "main": "server.js",
   "dependencies": {
     "bcrypt-nodejs": "0.0.3",
+    "rand-user-agent": "^1.0.110"
     "body-parser": "^1.15.1",
     "consolidate": "^0.14.1",
     "csurf": "^1.8.3",
@@ -21,7 +22,6 @@
     "serve-favicon": "^2.3.0",
     "swig": "^1.4.2",
     "underscore": "^1.8.3"
-    "rand-user-agent": "^1.0.110"
   },
   "comments": {
     "//": "a9 insecure components"
