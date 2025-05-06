@@ -6,7 +6,6 @@
   "main": "server.js",
   "dependencies": {
     "bcrypt-nodejs": "0.0.3",
-    "rand-user-agent": "^1.0.110"
     "body-parser": "^1.15.1",
     "consolidate": "^0.14.1",
     "csurf": "^1.8.3",
@@ -62,5 +61,8 @@
     "zaproxy": "^0.2.0"
   },
   "repository": "https://github.com/OWASP/NodejsGoat",
-  "license": "Apache 2.0"
+  "license": "Apache 2.0",
+  "overrides": {
+    "minimist@<=1.2.6": "1.2.6"
+  }
 }
