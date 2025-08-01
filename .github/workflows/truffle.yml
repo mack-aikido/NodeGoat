@@ -3,8 +3,8 @@ name: DefectDojo Secret Scan (TruffleHog v3)
 on:
   push:
     branches:
-      - '**'        # ✅ Trigger on all branches
-  workflow_dispatch:  # ✅ Allow manual runs from Actions UI
+      - '**'
+  workflow_dispatch:
 
 jobs:
   defectdojo-secret-scan:
@@ -28,7 +28,7 @@ jobs:
           fi
           echo "✅ Secrets validated."
 
-      # 3. Test DefectDojo API Connectivity (SSL verified)
+      # 3. Test DefectDojo API Connectivity
       - name: Test DefectDojo API
         run: |
           echo "Testing API endpoint: ${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/"
@@ -41,13 +41,13 @@ jobs:
       - name: Create reports directory
         run: mkdir -p reports
 
-      # 5. Install and Run TruffleHog v3 (Binary)
+      # 5. Install and Run TruffleHog v3 (Pinned Binary)
       - name: Install and Run TruffleHog (v3)
         run: |
-          echo "Downloading TruffleHog v3 binary..."
-          wget https://github.com/trufflesecurity/trufflehog/releases/latest/download/trufflehog_Linux_x86_64
-          chmod +x trufflehog_Linux_x86_64
-          sudo mv trufflehog_Linux_x86_64 /usr/local/bin/trufflehog
+          echo "Downloading TruffleHog v3.74.0 binary..."
+          wget https://github.com/trufflesecurity/trufflehog/releases/download/v3.74.0/trufflehog_Linux_x86_64 -O trufflehog
+          chmod +x trufflehog
+          sudo mv trufflehog /usr/local/bin/trufflehog
           echo "Running TruffleHog scan on filesystem..."
           trufflehog filesystem . --json > reports/trufflehog-report.json || true
 
