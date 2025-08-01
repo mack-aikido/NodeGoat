@@ -22,16 +22,18 @@ jobs:
           docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest git file:///pwd --json > reports/trufflehog-scan-report.json || true
 
       # ✅ Upload to DefectDojo
-      - name: Upload to DefectDojo
-        id: import-trufflehog
-        uses: ivanamat/defectdojo-import-scan@v1
-        env:
-          INPUT_TOKEN: ${{ secrets.DEFECTDOJO_TOKEN }}
-          INPUT_DEFECTDOJO_URL: ${{ secrets.DEFECTDOJO_URL }}
-        with:
-          file: reports/trufflehog-scan-report.json
-          scan_type: Trufflehog Scan
-          engagement: 1
+      - name: Reimport Scan Report to DefectDojo
+        run: |
+          echo "Reimporting scan report to DefectDojo (deduplicating)..."
+          curl -s -o response.json -w "%{http_code}\n" -X POST \
+            "${{ secrets.DEFECTDOJO_URL }}/api/v2/reimport-scan/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+            -H "accept: application/json" \
+            -F "scan_type=Trufflehog Scan" \
+            -F "engagement=1" \
+            -F "file=@reports/trufflehog-scan-report.json" \
+            -F "test_title=Automated Trufflehog Scan" \
+            -F "deduplication_on_engagement=true"
 
       # ✅ Show API Response
       - name: Show API Response
