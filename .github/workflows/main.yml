@@ -1,10 +1,10 @@
-name: DefectDojo Scan Upload (All Branches)
+name: DefectDojo Scan Upload (Insecure SSL)
 
 on:
   push:
     branches:
-      - '**'      # ✅ Trigger on all branches
-  workflow_dispatch:  # ✅ Manual trigger support
+      - '**'   # ✅ Trigger on all branches
+  workflow_dispatch:  # ✅ Manual trigger
 
 jobs:
   defectdojo-upload:
@@ -28,11 +28,11 @@ jobs:
           fi
           echo "✅ Secrets present."
 
-      # 3. Test DefectDojo API Connectivity
-      - name: Test API Connectivity (URL)
+      # 3. Test API Connectivity (insecure SSL)
+      - name: Test API Connectivity (Insecure SSL)
         run: |
           API_URL="${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/"
-          echo "Testing API URL: $API_URL"
+          echo "Testing API URL (insecure SSL): $API_URL"
           curl -vk $API_URL \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json"
@@ -49,20 +49,17 @@ jobs:
           format: json
           output: reports/trivy-scan-report.json
 
-      # 6. Upload Report to DefectDojo
-      - name: Publish report to DefectDojo
-        id: import-scan
-        uses: ivanamat/defectdojo-import-scan@v1
-        with:
-          token: ${{ secrets.DEFECTDOJO_TOKEN }}
-          defectdojo_url: ${{ secrets.DEFECTDOJO_URL }}
-          file: reports/trivy-scan-report.json
-          scan_type: Trivy Scan
-          engagement: 1
-          defectdojo_endpoint: /api/v2/import-scan/
-
-      # 7. Show API Response
-      - name: Show API response
+      # 6. Upload Report to DefectDojo (manual curl with -k)
+      - name: Upload Scan Report to DefectDojo (Insecure SSL)
         run: |
-          echo "DefectDojo API Response:"
-          printf '%s\n' '${{ steps.import-scan.outputs.response }}'
+          echo "Uploading scan report to DefectDojo..."
+          curl -vk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+            -H "accept: application/json" \
+            -F "scan_type=Trivy Scan" \
+            -F "engagement=1" \
+            -F "file=@reports/trivy-scan-report.json"
+
+      # 7. Confirm Completion
+      - name: Show Confirmation
+        run: echo "✅ Scan uploaded to DefectDojo (SSL verification skipped)."
