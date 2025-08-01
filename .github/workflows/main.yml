@@ -1,9 +1,10 @@
 name: DefectDojo Scan Upload (IP-Based)
 
 on:
+  workflow_dispatch:
   push:
     branches:
-      - main  # adjust if needed
+      - **
 
 jobs:
   defectdojo-upload:
