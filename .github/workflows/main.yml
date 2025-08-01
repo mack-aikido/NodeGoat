@@ -1,29 +1,51 @@
 name: DefectDojo Scan Upload (IP-Based)
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - '**'
+  workflow_dispatch:  # Allows manual trigger from Actions tab
 
 jobs:
   defectdojo-upload:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout Code
       - name: Checkout code repository
         uses: actions/checkout@v2
 
+      # 2. Debug Secrets (Fail Early if Missing)
+      - name: Validate Secrets
+        run: |
+          if [ -z "${{ secrets.DEFECTDOJO_IP }}" ]; then
+            echo "❌ DEFECTDOJO_IP is missing!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.DEFECTDOJO_TOKEN }}" ]; then
+            echo "❌ DEFECTDOJO_TOKEN is missing!"
+            exit 1
+          fi
+          echo "✅ Secrets present."
+
+      # 3. Test DefectDojo API Connectivity (SSL bypass via -k)
       - name: Test API Connectivity (IP)
         run: |
-          curl -vk https://${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/ \
-          -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
-          -H "accept: application/json" || exit 1
+          API_URL="https://${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/"
+          echo "Testing API URL: $API_URL"
+          curl -vk $API_URL \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+            -H "accept: application/json"
 
+      # 4. Run Trivy Scan (using official action)
       - name: Run Trivy Scan
-        run: |
-          trivy fs. -f json -o reports/trivy-scan-report.json
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          format: json
+          output: reports/trivy-scan-report.json
 
+      # 5. Publish Report to DefectDojo
       - name: Publish report to DefectDojo (IP)
         id: import-scan
         uses: ivanamat/defectdojo-import-scan@v1
@@ -35,7 +57,8 @@ jobs:
           engagement: 1
           defectdojo_endpoint: /api/v2/import-scan/
 
+      # 6. Show DefectDojo API Response
       - name: Show API response
         run: |
+          echo "DefectDojo API Response:"
           printf '%s\n' '${{ steps.import-scan.outputs.response }}'
-
