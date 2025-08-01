@@ -41,23 +41,21 @@ jobs:
       - name: Create reports directory
         run: mkdir -p reports
 
-      # 5. Run Trivy Scan (Generate report)
+      # 5. Run Trivy Scan (official action)
       - name: Run Trivy Scan
-        run: |
-          trivy fs . \
-            --format json \
-            --output reports/trivy-scan-report.json
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          format: json
+          output: reports/trivy-scan-report.json
 
-      # --- OPTIONAL: Uncomment the block below to fail on High/Critical vulnerabilities ---
-      # - name: Fail if High/Critical vulnerabilities are found
-      #   run: |
-      #     echo "Checking for High/Critical vulnerabilities..."
-      #     trivy fs . \
-      #       --severity HIGH,CRITICAL \
-      #       --exit-code 1
-      # -------------------------------------------------------------------------------
+      # 6. Fail if Critical Vulnerabilities are Found
+      #- name: Fail on Critical Vulnerabilities
+       # run: |
+        #  echo "Checking for Critical vulnerabilities..."
+         # trivy fs . --severity CRITICAL --exit-code 1
 
-      # 6. Upload Report to DefectDojo
+      # 7. Upload Report to DefectDojo
       - name: Upload Scan Report to DefectDojo
         run: |
           echo "Uploading scan report to DefectDojo..."
@@ -69,16 +67,8 @@ jobs:
             -F "engagement=1" \
             -F "file=@reports/trivy-scan-report.json"
 
-      # 7. Show API Response
+      # 8. Show API Response
       - name: Show API Response
         run: |
           echo "✅ DefectDojo API response:"
           cat response.json
-
-      # --- OPTIONAL: Upload report artifact for review ---
-      # - name: Upload Trivy Report Artifact
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: trivy-report
-      #     path: reports/trivy-scan-report.json
-      # ----------------------------------------------------
