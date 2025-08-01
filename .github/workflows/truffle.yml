@@ -1,4 +1,4 @@
-name: DefectDojo Secret Scan (TruffleHog v3)
+name: DefectDojo Secret Scan (TruffleHog Official Action)
 
 on:
   push:
@@ -41,15 +41,13 @@ jobs:
       - name: Create reports directory
         run: mkdir -p reports
 
-      # 5. Install and Run TruffleHog v3 (Pinned Binary)
-      - name: Install and Run TruffleHog (v3)
-        run: |
-          echo "Downloading TruffleHog v3.74.0 binary..."
-          wget https://github.com/trufflesecurity/trufflehog/releases/download/v3.74.0/trufflehog_Linux_x86_64 -O trufflehog
-          chmod +x trufflehog
-          sudo mv trufflehog /usr/local/bin/trufflehog
-          echo "Running TruffleHog scan on filesystem..."
-          trufflehog filesystem . --json > reports/trufflehog-report.json || true
+      # 5. Run TruffleHog Using Official Action (v3)
+      - name: Run TruffleHog Secret Scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: .
+          output: reports/trufflehog-report.json
+          format: json
 
       # 6. Fail if Secrets Detected (Optional - Commented Out)
       # - name: Fail on Detected Secrets
