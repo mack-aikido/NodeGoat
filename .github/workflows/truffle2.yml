@@ -21,6 +21,11 @@ jobs:
           echo "Running TruffleHog Git scan (full history)..."
           docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest git file:///pwd --json > reports/trufflehog-scan-report.json || true
 
+      - name: Debug TruffleHog Output
+        run: |
+          echo "Checking TruffleHog report contents..."
+          cat reports/trufflehog-scan-report.json || echo "No report found"
+
       # ✅ Upload to DefectDojo
       - name: Reimport Scan Report to DefectDojo
         run: |
