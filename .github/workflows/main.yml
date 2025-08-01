@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - **
+      - '**'
 
 jobs:
   defectdojo-upload:
@@ -22,7 +22,7 @@ jobs:
 
       - name: Run Trivy Scan
         run: |
-          trivy fs . -f json -o reports/trivy-scan-report.json
+          trivy fs. -f json -o reports/trivy-scan-report.json
 
       - name: Publish report to DefectDojo (IP)
         id: import-scan
