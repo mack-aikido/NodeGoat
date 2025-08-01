@@ -57,8 +57,6 @@ jobs:
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json" \
             -F "scan_type=Trufflehog3 Scan" \
-            -F "product_name=TruffleHog Scan" \                   
-            -F "engagement_name=Automated TruffleHog Git Scan" \  
             -F "file=@reports/trufflehog-report.json"
 
       - name: Show API Response
