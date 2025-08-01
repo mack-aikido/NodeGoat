@@ -18,8 +18,8 @@ jobs:
       # 2. Debug Secrets (Fail Early if Missing)
       - name: Validate Secrets
         run: |
-          if [ -z "${{ secrets.DEFECTDOJO_IP }}" ]; then
-            echo "❌ DEFECTDOJO_IP is missing!"
+          if [ -z "${{ secrets.DEFECTDOJO_URL }}" ]; then
+            echo "❌ DEFECTDOJO_URL is missing!"
             exit 1
           fi
           if [ -z "${{ secrets.DEFECTDOJO_TOKEN }}" ]; then
