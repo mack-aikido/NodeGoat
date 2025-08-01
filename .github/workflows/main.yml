@@ -48,7 +48,6 @@ jobs:
           scan-type: fs.
           format: json
           output: reports/trivy-scan-report.json
-            --scanners vuln \
 
       # 6. Fail if Critical Vulnerabilities are Found
       #- name: Fail on Critical Vulnerabilities
