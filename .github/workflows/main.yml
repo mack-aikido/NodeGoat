@@ -3,8 +3,8 @@ name: DefectDojo Scan Upload
 on:
   push:
     branches:
-      - '**'      
-  workflow_dispatch: 
+      - '**'        # ✅ Trigger on all branches
+  workflow_dispatch:  # ✅ Allow manual runs from Actions UI
 
 jobs:
   defectdojo-upload:
@@ -41,13 +41,21 @@ jobs:
       - name: Create reports directory
         run: mkdir -p reports
 
-      # 5. Run Trivy Scan (official action)
+      # 5. Run Trivy Scan (Generate report)
       - name: Run Trivy Scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: fs
-          format: json
-          output: reports/trivy-scan-report.json
+        run: |
+          trivy fs . \
+            --format json \
+            --output reports/trivy-scan-report.json
+
+      # --- OPTIONAL: Uncomment the block below to fail on High/Critical vulnerabilities ---
+      # - name: Fail if High/Critical vulnerabilities are found
+      #   run: |
+      #     echo "Checking for High/Critical vulnerabilities..."
+      #     trivy fs . \
+      #       --severity HIGH,CRITICAL \
+      #       --exit-code 1
+      # -------------------------------------------------------------------------------
 
       # 6. Upload Report to DefectDojo
       - name: Upload Scan Report to DefectDojo
@@ -66,3 +74,11 @@ jobs:
         run: |
           echo "✅ DefectDojo API response:"
           cat response.json
+
+      # --- OPTIONAL: Upload report artifact for review ---
+      # - name: Upload Trivy Report Artifact
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: trivy-report
+      #     path: reports/trivy-scan-report.json
+      # ----------------------------------------------------
