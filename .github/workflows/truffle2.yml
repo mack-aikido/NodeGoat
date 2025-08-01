@@ -27,7 +27,7 @@ jobs:
         uses: ivanamat/defectdojo-import-scan@v1
         env:
           INPUT_TOKEN: ${{ secrets.DEFECTDOJO_TOKEN }}
-          INPUT_DEFECTDOJO_URL: ${{ secrets.DEFECTOJO_URL }}
+          INPUT_DEFECTDOJO_URL: ${{ secrets.DEFECTDOJO_URL }}
         with:
           file: reports/trufflehog-scan-report.json
           scan_type: Trufflehog Scan
