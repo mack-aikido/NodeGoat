@@ -1,4 +1,4 @@
-name: DefectDojo Secret Scan (TruffleHog)
+name: DefectDojo Secret Scan (TruffleHog - Git Scan)
 
 on:
   push:
@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # ✅ Fetch full history for scanning commits
 
       - name: Validate Secrets
         run: |
@@ -31,11 +33,11 @@ jobs:
       - name: Create reports directory
         run: mkdir -p reports
 
-      # ✅ Force TruffleHog filesystem scan via Docker
-      - name: Run TruffleHog Secret Scan (Filesystem)
+      # ✅ Run TruffleHog in Git mode (scans full commit history)
+      - name: Run TruffleHog Git Scan
         run: |
-          echo "Running TruffleHog filesystem scan..."
-          docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest filesystem /pwd --json > reports/trufflehog-report.json || true
+          echo "Running TruffleHog Git scan (full history)..."
+          docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest git file:///pwd --json > reports/trufflehog-report.json || true
 
       # Optional: Fail on secrets
       # - name: Fail on Detected Secrets
@@ -49,14 +51,14 @@ jobs:
 
       - name: Import TruffleHog Report to DefectDojo
         run: |
-          echo "Importing TruffleHog secret scan report to DefectDojo..."
+          echo "Importing TruffleHog Git scan report to DefectDojo..."
           curl -s -o response.json -w "%{http_code}\n" -X POST \
             "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json" \
             -F "scan_type=Generic Findings Import" \
-            -F "product_name=TruffleHog Scan" \                   # ✅ Your product in DefectDojo
-            -F "engagement_name=Automated TruffleHog Scan" \      # ✅ Auto-create engagement
+            -F "product_name=TruffleHog Scan" \                   
+            -F "engagement_name=Automated TruffleHog Git Scan" \  
             -F "file=@reports/trufflehog-report.json"
 
       - name: Show API Response
