@@ -1,10 +1,10 @@
-name: DefectDojo Scan Upload (SSL Host Mapping)
+name: DefectDojo Scan Upload
 
 on:
   push:
     branches:
-      - '**'   # ✅ Trigger on all branches
-  workflow_dispatch:  # ✅ Manual trigger option
+      - '**'      
+  workflow_dispatch: 
 
 jobs:
   defectdojo-upload:
@@ -12,10 +12,10 @@ jobs:
 
     steps:
       # 1. Checkout Code
-      - name: Checkout code repository
-        uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      # 2. Validate Secrets (Fail early if missing)
+      # 2. Validate Required Secrets
       - name: Validate Secrets
         run: |
           if [ -z "${{ secrets.DEFECTDOJO_URL }}" ]; then
@@ -26,28 +26,22 @@ jobs:
             echo "❌ DEFECTDOJO_TOKEN is missing!"
             exit 1
           fi
-          echo "✅ Secrets present."
+          echo "✅ Secrets validated."
 
-      # 3. Map hostname to IP (SSL workaround while DNS propagates)
-      - name: Map hostname to IP for SSL
+      # 3. Test DefectDojo API Connectivity (SSL verified)
+      - name: Test DefectDojo API
         run: |
-          echo "16.171.57.1 thedisclosure.show" | sudo tee -a /etc/hosts
-          echo "✅ Mapped thedisclosure.show to 16.171.57.1"
-
-      # 4. Test DefectDojo API Connectivity
-      - name: Test API Connectivity (SSL valid now)
-        run: |
-          API_URL="${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/"
-          echo "Testing API URL: $API_URL"
-          curl -v $API_URL \
+          echo "Testing API endpoint: ${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/"
+          curl -s -o /dev/null -w "%{http_code}\n" \
+            "${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json"
 
-      # 5. Create Reports Folder
+      # 4. Create Reports Folder
       - name: Create reports directory
         run: mkdir -p reports
 
-      # 6. Run Trivy Scan (official action)
+      # 5. Run Trivy Scan (official action)
       - name: Run Trivy Scan
         uses: aquasecurity/trivy-action@master
         with:
@@ -55,17 +49,20 @@ jobs:
           format: json
           output: reports/trivy-scan-report.json
 
-      # 7. Upload Report to DefectDojo (no -k needed)
+      # 6. Upload Report to DefectDojo
       - name: Upload Scan Report to DefectDojo
         run: |
           echo "Uploading scan report to DefectDojo..."
-          curl -v -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
+          curl -s -o response.json -w "%{http_code}\n" -X POST \
+            "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json" \
             -F "scan_type=Trivy Scan" \
             -F "engagement=1" \
             -F "file=@reports/trivy-scan-report.json"
 
-      # 8. Confirm Completion
-      - name: Show Confirmation
-        run: echo "✅ Scan uploaded to DefectDojo successfully."
+      # 7. Show API Response
+      - name: Show API Response
+        run: |
+          echo "✅ DefectDojo API response:"
+          cat response.json
