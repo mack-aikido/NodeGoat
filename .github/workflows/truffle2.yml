@@ -21,8 +21,8 @@ jobs:
         id: import-trufflehog
         uses: ivanamat/defectdojo-import-scan@v1
         with:
-          token: ${{ secrets.DEFECTOJO_TOKEN }}
-          defectdojo_url: ${{ secrets.DEFECTOJO_URL }}
+          token: ${{ secrets.DEFECTDOJO_TOKEN }}
+          defectdojo_url: ${{ secrets.DEFECTDOJO_URL }}
           file: reports/trufflehog-scan-report.json
           scan_type: Trufflehog Scan
           engagement: 1
