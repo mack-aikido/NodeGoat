@@ -64,6 +64,7 @@ jobs:
             "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json" \
+            -F "deduplication_on_engagement=true" \
             -F "scan_type=Trivy Scan" \
             -F "engagement=1" \
             -F "file=@reports/trivy-scan-report.json"
