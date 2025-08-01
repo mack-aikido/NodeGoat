@@ -11,10 +11,11 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       
-      - name: Run Trufflehog Scan
+     # ✅ Run TruffleHog Git scan (full commit history)
+      - name: Run TruffleHog Git Scan
         run: |
-          pip install trufflehog
-          trufflehog filesystem --json . > reports/trufflehog-scan-report.json
+          echo "Running TruffleHog Git scan (full history)..."
+          docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest git file:///pwd --json > reports/trufflehog-report.json || true
 
       - name: Upload to DefectDojo
         id: import-trufflehog
