@@ -41,11 +41,13 @@ jobs:
       - name: Create reports directory
         run: mkdir -p reports
 
-      # 5. Install and Run TruffleHog v3 (Filesystem Scan)
-      - name: Run TruffleHog (Secret Scan)
+      # 5. Install and Run TruffleHog v3 from GitHub Binary
+      - name: Install and Run TruffleHog (v3)
         run: |
-          echo "Installing TruffleHog v3..."
-          pip install trufflehog==3.62.0
+          echo "Downloading TruffleHog v3..."
+          wget https://github.com/trufflesecurity/trufflehog/releases/latest/download/trufflehog_Linux_x86_64.tar.gz
+          tar zxvf trufflehog_Linux_x86_64.tar.gz
+          sudo mv trufflehog /usr/local/bin/trufflehog
           echo "Running TruffleHog scan on filesystem..."
           trufflehog filesystem . --json > reports/trufflehog-report.json || true
 
