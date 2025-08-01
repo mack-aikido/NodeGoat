@@ -14,7 +14,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # ✅ Fetch full history for scanning commits
+          fetch-depth: 0  # ✅ Full history for git scan
 
       - name: Validate Secrets
         run: |
@@ -33,13 +33,13 @@ jobs:
       - name: Create reports directory
         run: mkdir -p reports
 
-      # ✅ Run TruffleHog in Git mode (scans full commit history)
+      # ✅ Run TruffleHog Git scan (full commit history)
       - name: Run TruffleHog Git Scan
         run: |
           echo "Running TruffleHog Git scan (full history)..."
           docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest git file:///pwd --json > reports/trufflehog-report.json || true
 
-      # Optional: Fail on secrets
+      # Optional: Fail on detected secrets
       # - name: Fail on Detected Secrets
       #   run: |
       #     if grep -q "SourceMetadata" reports/trufflehog-report.json; then
@@ -49,15 +49,19 @@ jobs:
       #       echo "✅ No secrets found."
       #     fi
 
-      - name: Import TruffleHog Report to DefectDojo
+      # ✅ Reimport scan into the specific engagement
+      - name: Reimport TruffleHog Report to DefectDojo
         run: |
-          echo "Importing TruffleHog Git scan report to DefectDojo..."
+          echo "Reimporting TruffleHog Git scan report to DefectDojo..."
           curl -s -o response.json -w "%{http_code}\n" -X POST \
-            "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
+            "${{ secrets.DEFECTDOJO_URL }}/api/v2/reimport-scan/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json" \
-            -F "scan_type=Trufflehog3 Scan" \
-            -F "file=@reports/trufflehog-report.json"
+            -F "scan_type=Generic Findings Import" \        # ✅ Use Generic parser unless TruffleHog3 parser is verified
+            -F "engagement=<ENGAGEMENT_ID>" \               # ✅ Replace with the engagement ID for "TruffleHog CI/CD Scans"
+            -F "file=@reports/trufflehog-report.json" \
+            -F "test_title=Automated TruffleHog Git Scan" \
+            -F "deduplication_on_engagement=true"
 
       - name: Show API Response
         run: cat response.json
