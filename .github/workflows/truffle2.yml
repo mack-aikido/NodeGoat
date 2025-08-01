@@ -35,7 +35,7 @@ jobs:
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json" \
             -F "scan_type=Trufflehog3 Scan" \
-            -F "engagement=1" \
+            -F "engagement=10" \
             -F "file=@reports/trufflehog-scan-report.json" \
             -F "test_title=Automated Trufflehog Scan" \
             -F "deduplication_on_engagement=true"
