@@ -2,7 +2,8 @@ name: Trufflehog Scan and Upload
 
 on:
   push:
-    branches: [main]
+    branches: '**'
+  workflow_dispatch: 
 
 jobs:
   scan-and-upload:
