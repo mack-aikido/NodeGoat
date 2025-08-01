@@ -45,7 +45,7 @@ jobs:
       - name: Run Trivy Scan
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: fs
+          scan-type: vuln
           format: json
           output: reports/trivy-scan-report.json
 
