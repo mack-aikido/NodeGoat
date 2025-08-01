@@ -1,4 +1,4 @@
-name: DefectDojo Secret Scan (TruffleHog)
+name: DefectDojo Secret Scan (TruffleHog v3)
 
 on:
   push:
@@ -41,15 +41,15 @@ jobs:
       - name: Create reports directory
         run: mkdir -p reports
 
-      # 5. Install and Run TruffleHog
+      # 5. Install and Run TruffleHog v3 (Filesystem Scan)
       - name: Run TruffleHog (Secret Scan)
         run: |
-          echo "Installing TruffleHog..."
-          pip install trufflehog
-          echo "Running TruffleHog scan..."
+          echo "Installing TruffleHog v3..."
+          pip install trufflehog==3.62.0
+          echo "Running TruffleHog scan on filesystem..."
           trufflehog filesystem . --json > reports/trufflehog-report.json || true
 
-      # 6. Fail if Secrets Detected (optional - commented out)
+      # 6. Fail if Secrets Detected (Optional - Commented Out)
       # - name: Fail on Detected Secrets
       #   run: |
       #     echo "Checking if any secrets detected..."
@@ -60,10 +60,10 @@ jobs:
       #       echo "✅ No secrets found."
       #     fi
 
-      # 7. Upload Report to DefectDojo (as "Generic Findings Import")
-      - name: Upload TruffleHog Report to DefectDojo
+      # 7. Reimport Report to DefectDojo (deduplicated)
+      - name: Reimport TruffleHog Report to DefectDojo
         run: |
-          echo "Uploading TruffleHog secret scan report to DefectDojo..."
+          echo "Reimporting TruffleHog secret scan report to DefectDojo (deduplicating)..."
           curl -s -o response.json -w "%{http_code}\n" -X POST \
             "${{ secrets.DEFECTDOJO_URL }}/api/v2/reimport-scan/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
