@@ -58,7 +58,7 @@ jobs:
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json" \
             -F "scan_type=Trufflehog3 Scan" \        # ✅ Use Generic parser unless TruffleHog3 parser is verified
-            -F "engagement=1121" \               # ✅ Replace with the engagement ID for "TruffleHog CI/CD Scans"
+            -F "engagement=1" \               # ✅ Replace with the engagement ID for "TruffleHog CI/CD Scans"
             -F "file=@reports/trufflehog-report.json" \
             -F "test_title=Automated TruffleHog Git Scan" \
             -F "deduplication_on_engagement=true"
