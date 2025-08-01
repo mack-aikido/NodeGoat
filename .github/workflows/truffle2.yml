@@ -1,0 +1,30 @@
+name: Trufflehog Scan and Upload
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  scan-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Run Trufflehog Scan
+        run: |
+          pip install trufflehog
+          trufflehog filesystem --json . > reports/trufflehog-scan-report.json
+
+      - name: Upload to DefectDojo
+        id: import-trufflehog
+        uses: ivanamat/defectdojo-import-scan@v1
+        with:
+          token: ${{ secrets.DEFECTOJO_TOKEN }}
+          defectdojo_url: ${{ secrets.DEFECTOJO_URL }}
+          file: reports/trufflehog-scan-report.json
+          scan_type: Trufflehog Scan
+          engagement: 1
+
+      - name: Show API Response
+        run: |
+          printf '%s\n' '${{ steps.import-trufflehog.outputs.response }}'
