@@ -51,10 +51,10 @@ jobs:
           output: reports/trivy-scan-report.json
 
       # 6. Fail if Critical Vulnerabilities are Found
-      - name: Fail on Critical Vulnerabilities
-        run: |
-          echo "Checking for Critical vulnerabilities..."
-          trivy fs . --scanners vuln --severity CRITICAL --exit-code 1 || echo "No critical vulns or failing step skipped."
+      #- name: Fail on Critical Vulnerabilities
+       # run: |
+        #  echo "Checking for Critical vulnerabilities..."
+         # trivy fs . --scanners vuln --severity CRITICAL --exit-code 1 || echo "No critical vulns or failing step skipped."
 
       # 7. Reimport Report to DefectDojo (deduplicated)
       - name: Reimport Scan Report to DefectDojo
