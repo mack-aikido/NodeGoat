@@ -1,4 +1,4 @@
-name: Trufflehog Scan and Upload
+name: T2
 
 on:
   push:
@@ -10,23 +10,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+
+      # ✅ Ensure reports folder exists
+      - name: Create Reports Folder
+        run: mkdir -p reports
       
-     # ✅ Run TruffleHog Git scan (full commit history)
+      # ✅ Run TruffleHog Git scan (full commit history)
       - name: Run TruffleHog Git Scan
         run: |
           echo "Running TruffleHog Git scan (full history)..."
-          docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest git file:///pwd --json > reports/trufflehog-report.json || true
+          docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest git file:///pwd --json > reports/trufflehog-scan-report.json || true
 
+      # ✅ Upload to DefectDojo
       - name: Upload to DefectDojo
         id: import-trufflehog
         uses: ivanamat/defectdojo-import-scan@v1
+        env:
+          INPUT_TOKEN: ${{ secrets.DEFECTDOJO_TOKEN }}
+          INPUT_DEFECTDOJO_URL: ${{ secrets.DEFECTOJO_URL }}
         with:
-          token: ${{ secrets.DEFECTDOJO_TOKEN }}
-          defectdojo_url: ${{ secrets.DEFECTDOJO_URL }}
           file: reports/trufflehog-scan-report.json
           scan_type: Trufflehog Scan
           engagement: 1
 
+      # ✅ Show API Response
       - name: Show API Response
         run: |
           printf '%s\n' '${{ steps.import-trufflehog.outputs.response }}'
