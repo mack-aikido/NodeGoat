@@ -1,4 +1,4 @@
-name: DefectDojo Secret Scan (TruffleHog Official Action)
+name: DefectDojo Secret Scan (TruffleHog v3)
 
 on:
   push:
@@ -11,48 +11,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout Code
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2. Validate Required Secrets
       - name: Validate Secrets
         run: |
-          if [ -z "${{ secrets.DEFECTDOJO_URL }}" ]; then
-            echo "❌ DEFECTDOJO_URL is missing!"
+          if [ -z "${{ secrets.DEFECTDOJO_URL }}" ] || [ -z "${{ secrets.DEFECTDOJO_TOKEN }}" ]; then
+            echo "❌ Missing required secrets."
             exit 1
           fi
-          if [ -z "${{ secrets.DEFECTDOJO_TOKEN }}" ]; then
-            echo "❌ DEFECTDOJO_TOKEN is missing!"
-            exit 1
-          fi
-          echo "✅ Secrets validated."
 
-      # 3. Test DefectDojo API Connectivity
       - name: Test DefectDojo API
         run: |
-          echo "Testing API endpoint: ${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/"
           curl -s -o /dev/null -w "%{http_code}\n" \
             "${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json"
 
-      # 4. Create Reports Folder
       - name: Create reports directory
         run: mkdir -p reports
 
-      # 5. Run TruffleHog Using Official Action (v3)
-      - name: Run TruffleHog Secret Scan
-        uses: trufflesecurity/trufflehog@main
-        with:
-          path: .
-          output: reports/trufflehog-report.json
-          format: json
+      # ✅ Force TruffleHog filesystem scan via Docker
+      - name: Run TruffleHog Secret Scan (Filesystem)
+        run: |
+          echo "Running TruffleHog filesystem scan..."
+          docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest filesystem /pwd --json > reports/trufflehog-report.json || true
 
-      # 6. Fail if Secrets Detected (Optional - Commented Out)
+      # Optional: Fail on secrets
       # - name: Fail on Detected Secrets
       #   run: |
-      #     echo "Checking if any secrets detected..."
       #     if grep -q "SourceMetadata" reports/trufflehog-report.json; then
       #       echo "❌ Secrets detected! Failing the job."
       #       exit 1
@@ -60,10 +47,9 @@ jobs:
       #       echo "✅ No secrets found."
       #     fi
 
-      # 7. Reimport Report to DefectDojo (deduplicated)
       - name: Reimport TruffleHog Report to DefectDojo
         run: |
-          echo "Reimporting TruffleHog secret scan report to DefectDojo (deduplicating)..."
+          echo "Reimporting TruffleHog secret scan report to DefectDojo..."
           curl -s -o response.json -w "%{http_code}\n" -X POST \
             "${{ secrets.DEFECTDOJO_URL }}/api/v2/reimport-scan/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
@@ -74,8 +60,5 @@ jobs:
             -F "test_title=Automated TruffleHog Secret Scan" \
             -F "deduplication_on_engagement=true"
 
-      # 8. Show API Response
       - name: Show API Response
-        run: |
-          echo "✅ DefectDojo API response:"
-          cat response.json
+        run: cat response.json
