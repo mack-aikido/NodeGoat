@@ -1,10 +1,10 @@
-name: DefectDojo Scan Upload (IP-Based)
+name: DefectDojo Scan Upload (All Branches)
 
 on:
   push:
     branches:
-      - '**'
-  workflow_dispatch:  # Allows manual trigger from Actions tab
+      - '**'      # ✅ Trigger on all branches
+  workflow_dispatch:  # ✅ Manual trigger support
 
 jobs:
   defectdojo-upload:
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout code repository
         uses: actions/checkout@v2
 
-      # 2. Debug Secrets (Fail Early if Missing)
+      # 2. Validate Secrets (Fail early if missing)
       - name: Validate Secrets
         run: |
           if [ -z "${{ secrets.DEFECTDOJO_URL }}" ]; then
@@ -28,16 +28,20 @@ jobs:
           fi
           echo "✅ Secrets present."
 
-      # 3. Test DefectDojo API Connectivity (SSL bypass via -k)
-      - name: Test API Connectivity (IP)
+      # 3. Test DefectDojo API Connectivity
+      - name: Test API Connectivity (URL)
         run: |
-          API_URL="https://${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/"
+          API_URL="${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/"
           echo "Testing API URL: $API_URL"
           curl -vk $API_URL \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json"
 
-      # 4. Run Trivy Scan (using official action)
+      # 4. Create Reports Folder
+      - name: Create reports directory
+        run: mkdir -p reports
+
+      # 5. Run Trivy Scan (official action)
       - name: Run Trivy Scan
         uses: aquasecurity/trivy-action@master
         with:
@@ -45,19 +49,19 @@ jobs:
           format: json
           output: reports/trivy-scan-report.json
 
-      # 5. Publish Report to DefectDojo
-      - name: Publish report to DefectDojo (IP)
+      # 6. Upload Report to DefectDojo
+      - name: Publish report to DefectDojo
         id: import-scan
         uses: ivanamat/defectdojo-import-scan@v1
         with:
           token: ${{ secrets.DEFECTDOJO_TOKEN }}
-          defectdojo_url: https://${{ secrets.DEFECTDOJO_IP }}
+          defectdojo_url: ${{ secrets.DEFECTDOJO_URL }}
           file: reports/trivy-scan-report.json
           scan_type: Trivy Scan
           engagement: 1
           defectdojo_endpoint: /api/v2/import-scan/
 
-      # 6. Show DefectDojo API Response
+      # 7. Show API Response
       - name: Show API response
         run: |
           echo "DefectDojo API Response:"
