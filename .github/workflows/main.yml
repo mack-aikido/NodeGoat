@@ -1,0 +1,29 @@
+name: DefectDojo Scan Upload
+
+on:
+  push:
+    branches:
+      - main  # or adjust to the branch you want
+
+jobs:
+  defectdojo-upload:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone code repository
+        uses: actions/checkout@v2
+
+      - name: Publish report
+        id: import-scan
+        uses: ivanamat/defectdojo-import-scan@v1
+        with:
+          token: ${{ secrets.DEFECTDOJO_TOKEN }}
+          defectdojo_url: ${{ secrets.DEFECTDOJO_URL }}
+          file: reports/trivy-scan-report.json
+          scan_type: Trivy Scan
+          engagement: 1
+
+      - name: Show response
+        run: |
+          set -e
+          printf '%s\n' '${{ steps.import-scan.outputs.response }}'
