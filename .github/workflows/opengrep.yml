@@ -3,7 +3,7 @@ name: DefectDojo SAST Scan Upload (OpenGrep - Auto Create Product & Engagement)
 on:
   push:
     branches:
-      - '**'
+      - '**'   # ✅ Trigger on all branches
   workflow_dispatch:
 
 jobs:
@@ -42,14 +42,11 @@ jobs:
       - name: Create reports directory
         run: mkdir -p reports
 
-      # 5. Install OpenGrep from GitHub and Run
-      - name: Install and Run OpenGrep
+      # 5. Run OpenGrep SAST Scan via Docker
+      - name: Run OpenGrep SAST Scan
         run: |
-          echo "Installing OpenGrep from GitHub..."
-          git clone https://github.com/opengrep/opengrep.git
-          cd opengrep
-          pip install -r requirements.txt
-          python opengrep.py --json ../ > ../reports/opengrep-report.json || true
+          echo "Running OpenGrep scan..."
+          docker run --rm -v $PWD:/app opengrep/opengrep:latest --json /app > reports/opengrep-report.json || true
 
       # 6. Create Product in DefectDojo
       - name: Create Product in DefectDojo
