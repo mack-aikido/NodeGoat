@@ -42,11 +42,14 @@ jobs:
       - name: Create reports directory
         run: mkdir -p reports
 
-      # 5. Run OpenGrep SAST Scan via Docker
-      - name: Run OpenGrep SAST Scan
+      # 5. Install and Run OpenGrep
+      - name: Install and Run OpenGrep
         run: |
-          echo "Running OpenGrep scan..."
-          docker run --rm -v $PWD:/app opengrep/opengrep:latest --json /app > reports/opengrep-report.json || true
+          echo "Cloning and running OpenGrep..."
+          git clone https://github.com/Neetx/opengrep.git
+          cd opengrep
+          pip install .
+          python3 opengrep.py --json ../ > ../reports/opengrep-report.json || true
 
       # 6. Create Product in DefectDojo
       - name: Create Product in DefectDojo
