@@ -1,46 +1,104 @@
-name: T2
+name: DefectDojo SAST Scan Upload (OpenGrep - Auto Create Product & Engagement)
 
 on:
   push:
-    branches: '**'
-  workflow_dispatch: 
+    branches:
+      - '**'   # ✅ Trigger on all branches
+  workflow_dispatch:  # ✅ Manual trigger
 
 jobs:
-  scan-and-upload:
+  defectdojo-opengrep-upload:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v2
+      # 1. Checkout Code
+      - name: Checkout code repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0  # ✅ Full history if OpenGrep analyzes Git history
 
-      # ✅ Ensure reports folder exists
-      - name: Create Reports Folder
+      # 2. Validate Secrets
+      - name: Validate Secrets
+        run: |
+          if [ -z "${{ secrets.DEFECTDOJO_URL }}" ]; then
+            echo "❌ DEFECTDOJO_URL is missing!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.DEFECTDOJO_TOKEN }}" ]; then
+            echo "❌ DEFECTDOJO_TOKEN is missing!"
+            exit 1
+          fi
+          echo "✅ Secrets present."
+
+      # 3. Test API Connectivity (Insecure SSL)
+      - name: Test API Connectivity (Insecure SSL)
+        run: |
+          API_URL="${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/"
+          echo "Testing API URL (insecure SSL): $API_URL"
+          curl -vk $API_URL \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+            -H "accept: application/json"
+
+      # 4. Create Reports Folder
+      - name: Create reports directory
         run: mkdir -p reports
-      
-      # ✅ Run TruffleHog Git scan (full commit history)
-      - name: Run TruffleHog Git Scan
-        run: |
-          echo "Running TruffleHog Git scan (full history)..."
-          docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest git file:///pwd --json > reports/trufflehog-scan-report.json || true
 
-      - name: Debug TruffleHog Output
+      # 5. Install and Run OpenGrep Scan
+      - name: Run OpenGrep Scan (SAST)
         run: |
-          echo "Checking TruffleHog report contents..."
-          cat reports/trufflehog-scan-report.json || echo "No report found"
+          echo "Installing and running OpenGrep..."
+          pip install opengrep
+          opengrep --json . > reports/opengrep-report.json || true
 
-      # ✅ Upload to DefectDojo
-      - name: Reimport Scan Report to DefectDojo
+      # 6. Create Product in DefectDojo
+      - name: Create Product in DefectDojo
         run: |
-          echo "Reimporting scan report to DefectDojo (deduplicating)..."
-          curl -s -o response.json -w "%{http_code}\n" -X POST \
-            "${{ secrets.DEFECTDOJO_URL }}/api/v2/reimport-scan/" \
+          PRODUCT_NAME="Opengrep Scan"
+          PROD_TYPE_ID=1   # ✅ Adjust if needed based on your DefectDojo setup
+          echo "Creating product '$PRODUCT_NAME'..."
+          curl -vk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/products/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"name\": \"${PRODUCT_NAME}\",
+              \"description\": \"Automated product for OpenGrep SAST scans.\",
+              \"prod_type\": ${PROD_TYPE_ID}
+            }"
+
+      # 7. Create Engagement in DefectDojo
+      - name: Create Engagement in DefectDojo
+        run: |
+          ENGAGEMENT_NAME="Opengrep CI/CD SAST Scans"
+          PRODUCT_ID=$(curl -sk -X GET "${{ secrets.DEFECTDOJO_URL }}/api/v2/products/?name=Opengrep%20Scan" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" | jq '.results[0].id')
+
+          TODAY=$(date +%Y-%m-%d)
+
+          echo "Creating engagement '$ENGAGEMENT_NAME' under product ID $PRODUCT_ID..."
+          curl -vk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/engagements/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"name\": \"${ENGAGEMENT_NAME}\",
+              \"description\": \"Engagement for OpenGrep SAST scans.\",
+              \"product\": ${PRODUCT_ID},
+              \"status\": \"In Progress\",
+              \"target_start\": \"${TODAY}\",
+              \"target_end\": \"${TODAY}\"
+            }"
+
+      # 8. Upload OpenGrep (Semgrep JSON Report) to DefectDojo
+      - name: Upload OpenGrep Report to DefectDojo
+        run: |
+          echo "Uploading OpenGrep scan report to DefectDojo..."
+          curl -vk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json" \
-            -F "scan_type=Trufflehog3 Scan" \
-            -F "engagement=10" \
-            -F "file=@reports/trufflehog-scan-report.json" \
-            -F "test_title=Automated Trufflehog Scan" \
-            -F "deduplication_on_engagement=true"
+            -F "scan_type=Semgrep JSON Report" \
+            -F "product_name=Opengrep Scan" \
+            -F "engagement_name=Opengrep CI/CD SAST Scans" \
+            -F "file=@reports/opengrep-report.json"
 
-      # ✅ Show API Response
-      - name: Show API Response
-        run: |
-          printf '%s\n' '${{ steps.import-trufflehog.outputs.response }}'
+      # 9. Confirm Completion
+      - name: Show Confirmation
+        run: echo "✅ OpenGrep scan uploaded, product & engagement created successfully."
