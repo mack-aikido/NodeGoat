@@ -50,10 +50,10 @@ jobs:
           docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest git file:///pwd --json > reports/trufflehog-raw.json || true
 
       # 6. Normalize TruffleHog JSON Output (NDJSON → JSON Array)
-      - name: Normalize TruffleHog JSON Output
-        run: |
-          echo "Converting TruffleHog NDJSON to JSON array..."
-          jq -s '.' reports/trufflehog-raw.json > reports/trufflehog-scan-report.json
+    #  - name: Normalize TruffleHog JSON Output
+     #   run: |
+      #    echo "Converting TruffleHog NDJSON to JSON array..."
+       #   jq -s '.' reports/trufflehog-raw.json > reports/trufflehog-scan-report.json
 
       # 7. Create Product in DefectDojo
       - name: Create Product in DefectDojo
@@ -102,7 +102,7 @@ jobs:
             -F "scan_type=Trufflehog Scan" \
             -F "product_name=TruffleHog Scan" \
             -F "engagement_name=TruffleHog CI/CD Scans" \
-            -F "file=@reports/trufflehog-scan-report.json"
+            -F "file=@reports/trufflehog-raw.json"
 
       # 10. Confirm Completion
       - name: Show Confirmation
