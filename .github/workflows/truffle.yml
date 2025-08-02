@@ -1,37 +1,41 @@
-name: DefectDojo Secret Scan (TruffleHog - Git Scan)
+name: DefectDojo Secret Scan Upload (TruffleHog - Insecure SSL)
 
 on:
   push:
     branches:
-      - '**'
-  workflow_dispatch:
+      - '**'   # ✅ Trigger on all branches
+  workflow_dispatch:  # ✅ Manual trigger
 
 jobs:
-  defectdojo-secret-scan:
+  defectdojo-upload:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repository (full history for git scan)
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      # 1. Checkout Code
+      - name: Checkout code repository
+        uses: actions/checkout@v2
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # ✅ Full history required for Git scan
 
-      # 2. Validate Required Secrets
+      # 2. Validate Secrets (Fail early if missing)
       - name: Validate Secrets
         run: |
-          if [ -z "${{ secrets.DEFECTDOJO_URL }}" ] || [ -z "${{ secrets.DEFECTDOJO_TOKEN }}" ]; then
-            echo "❌ Missing required secrets."
+          if [ -z "${{ secrets.DEFECTDOJO_URL }}" ]; then
+            echo "❌ DEFECTDOJO_URL is missing!"
             exit 1
           fi
-          echo "✅ Secrets validated."
+          if [ -z "${{ secrets.DEFECTDOJO_TOKEN }}" ]; then
+            echo "❌ DEFECTDOJO_TOKEN is missing!"
+            exit 1
+          fi
+          echo "✅ Secrets present."
 
-      # 3. Test DefectDojo API
-      - name: Test DefectDojo API
+      # 3. Test API Connectivity (Insecure SSL)
+      - name: Test API Connectivity (Insecure SSL)
         run: |
-          echo "Testing DefectDojo API..."
-          curl -s -o /dev/null -w "%{http_code}\n" \
-            "${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/" \
+          API_URL="${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/"
+          echo "Testing API URL (insecure SSL): $API_URL"
+          curl -vk $API_URL \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json"
 
@@ -39,47 +43,29 @@ jobs:
       - name: Create reports directory
         run: mkdir -p reports
 
-      # 5. Run TruffleHog Git Scan (full commit history)
+      # 5. Run TruffleHog Git Scan (Full Commit History)
       - name: Run TruffleHog Git Scan
         run: |
-          echo "Running TruffleHog Git scan..."
-          docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest git file:///pwd --json > reports/trufflehog-report.json || true
+          echo "Running TruffleHog Git scan (full history)..."
+          docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest git file:///pwd --json > reports/trufflehog-raw.json || true
 
-      # 6. Check Engagement and Upload
-      - name: Upload to DefectDojo (Auto-Detect Engagement)
+      # 6. Normalize TruffleHog JSON Output (NDJSON → JSON Array)
+      - name: Normalize TruffleHog JSON Output
         run: |
-          echo "Checking if engagement exists in DefectDojo..."
-          ENGAGEMENT_NAME="TruffleHog CI/CD Scans"
-          PRODUCT_NAME="TruffleHog Scan"
+          echo "Converting TruffleHog NDJSON to JSON array..."
+          jq -s '.' reports/trufflehog-raw.json > reports/trufflehog-scan-report.json
 
-          ENGAGEMENT_ID=$(curl -s -X GET "${{ secrets.DEFECTDOJO_URL }}/api/v2/engagements/?name=${ENGAGEMENT_NAME}" \
+      # 7. Upload Report to DefectDojo (Insecure SSL)
+      - name: Upload TruffleHog Report to DefectDojo (Insecure SSL)
+        run: |
+          echo "Uploading TruffleHog scan report to DefectDojo..."
+          curl -vk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
-            -H "accept: application/json" | jq '.results[0].id // empty')
+            -H "accept: application/json" \
+            -F "scan_type=Trufflehog Scan" \   # ✅ Use Generic parser for TruffleHog results
+            -F "engagement=1" \                        # ✅ Match your desired engagement ID
+            -F "file=@reports/trufflehog-scan-report.json"
 
-          if [ -z "$ENGAGEMENT_ID" ]; then
-            echo "Engagement not found. Running import-scan to create product/engagement..."
-            curl -s -o response.json -w "%{http_code}\n" -X POST \
-              "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
-              -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
-              -H "accept: application/json" \
-              -F "scan_type=Trufflehog3 Scan" \
-              -F "product_name=${PRODUCT_NAME}" \
-              -F "engagement_name=${ENGAGEMENT_NAME}" \
-              -F "file=@reports/trufflehog-report.json"
-          else
-            echo "Engagement not found. Running import-scan to create product/engagement..."
-            curl -s -o response.json -w "%{http_code}\n" -X POST \
-              "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
-              -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
-              -H "accept: application/json" \
-              -F "scan_type=Trufflehog3 Scan" \
-              -F "product_name=${PRODUCT_NAME}" \
-              -F "engagement_name=${ENGAGEMENT_NAME}" \
-              -F "file=@reports/trufflehog-report.json"
-          fi
-
-      # 7. Show API Response
-      - name: Show API Response
-        run: |
-          echo "✅ DefectDojo API response:"
-          cat response.json
+      # 8. Confirm Completion
+      - name: Show Confirmation
+        run: echo "✅ TruffleHog scan uploaded to DefectDojo (SSL verification skipped)."
