@@ -67,16 +67,15 @@ jobs:
               -F "engagement_name=${ENGAGEMENT_NAME}" \
               -F "file=@reports/trufflehog-report.json"
           else
-            echo "Engagement found (ID: $ENGAGEMENT_ID). Running reimport-scan..."
+            echo "Engagement not found. Running import-scan to create product/engagement..."
             curl -s -o response.json -w "%{http_code}\n" -X POST \
-              "${{ secrets.DEFECTDOJO_URL }}/api/v2/reimport-scan/" \
+              "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
               -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
               -H "accept: application/json" \
-              -F "scan_type=Trufflehog3 Scan" \
-              -F "engagement=1" \
-              -F "file=@reports/trufflehog-report.json" \
-              -F "test_title=Automated TruffleHog Git Scan" \
-              -F "deduplication_on_engagement=true"
+              -F "scan_type=Generic Findings Import" \
+              -F "product_name=${PRODUCT_NAME}" \
+              -F "engagement_name=${ENGAGEMENT_NAME}" \
+              -F "file=@reports/trufflehog-report.json"
           fi
 
       # 7. Show API Response
