@@ -1,13 +1,13 @@
-name: DefectDojo SAST Scan Upload (OpenGrep - Auto Create Product & Engagement)
+name: DefectDojo SAST Scan Upload (Opengrep - Auto Create Product & Engagement)
 
 on:
   push:
     branches:
       - '**'   # ✅ Trigger on all branches
-  workflow_dispatch:
+  workflow_dispatch:  # ✅ Manual trigger
 
 jobs:
-  defectdojo-opengrep-upload:
+  defectdojo-upload:
     runs-on: ubuntu-latest
 
     steps:
@@ -15,9 +15,9 @@ jobs:
       - name: Checkout code repository
         uses: actions/checkout@v2
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # ✅ Full history required for scanning
 
-      # 2. Validate Secrets
+      # 2. Validate Secrets (Fail early if missing)
       - name: Validate Secrets
         run: |
           if [ -z "${{ secrets.DEFECTDOJO_URL }}" ]; then
@@ -34,6 +34,7 @@ jobs:
       - name: Test API Connectivity (Insecure SSL)
         run: |
           API_URL="${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/"
+          echo "Testing API URL (insecure SSL): $API_URL"
           curl -vk $API_URL \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json"
@@ -42,59 +43,63 @@ jobs:
       - name: Create reports directory
         run: mkdir -p reports
 
-      # 5. Install and Run OpenGrep
-      - name: Install and Run OpenGrep
+      # 5. Install and Run Opengrep
+      - name: Install and Run Opengrep
         run: |
-          echo "Cloning and running OpenGrep..."
-          git clone https://github.com/Neetx/opengrep.git
-          cd opengrep
-          pip install .
-          python3 opengrep.py --json ../ > ../reports/opengrep-report.json || true
+          echo "Installing Opengrep..."
+          curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh | bash
+          echo "Running Opengrep scan..."
+          opengrep scan --json-output reports/opengrep-report.json . || true
 
       # 6. Create Product in DefectDojo
       - name: Create Product in DefectDojo
         run: |
           PRODUCT_NAME="Opengrep Scan"
-          PROD_TYPE_ID=1
+          PROD_TYPE_ID=1   # ✅ Adjust based on your DefectDojo Product Types
+          echo "Creating product '$PRODUCT_NAME'..."
           curl -vk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/products/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d "{
               \"name\": \"${PRODUCT_NAME}\",
-              \"description\": \"Automated product for OpenGrep SAST scans.\",
+              \"description\": \"Automated product for Opengrep scans.\",
               \"prod_type\": ${PROD_TYPE_ID}
             }"
 
       # 7. Create Engagement in DefectDojo
       - name: Create Engagement in DefectDojo
         run: |
-          ENGAGEMENT_NAME="Opengrep CI/CD SAST Scans"
+          ENGAGEMENT_NAME="Opengrep CI/CD Scans"
           PRODUCT_ID=$(curl -sk -X GET "${{ secrets.DEFECTDOJO_URL }}/api/v2/products/?name=Opengrep%20Scan" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" | jq '.results[0].id')
+
           TODAY=$(date +%Y-%m-%d)
+
+          echo "Creating engagement '$ENGAGEMENT_NAME' under product ID $PRODUCT_ID..."
           curl -vk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/engagements/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d "{
               \"name\": \"${ENGAGEMENT_NAME}\",
-              \"description\": \"Engagement for OpenGrep SAST scans.\",
+              \"description\": \"Engagement for Opengrep CI/CD SAST scans.\",
               \"product\": ${PRODUCT_ID},
               \"status\": \"In Progress\",
               \"target_start\": \"${TODAY}\",
               \"target_end\": \"${TODAY}\"
             }"
 
-      # 8. Upload OpenGrep (Semgrep JSON Report) to DefectDojo
-      - name: Upload OpenGrep Report to DefectDojo
+      # 8. Import Opengrep Scan to DefectDojo
+      - name: Upload Opengrep Report to DefectDojo
         run: |
+          echo "Uploading Opengrep scan report to DefectDojo..."
           curl -vk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json" \
             -F "scan_type=Semgrep JSON Report" \
             -F "product_name=Opengrep Scan" \
-            -F "engagement_name=Opengrep CI/CD SAST Scans" \
+            -F "engagement_name=Opengrep CI/CD Scans" \
             -F "file=@reports/opengrep-report.json"
 
       # 9. Confirm Completion
       - name: Show Confirmation
-        run: echo "✅ OpenGrep scan uploaded, product & engagement created successfully."
+        run: echo "✅ Opengrep scan uploaded, product & engagement created successfully."
