@@ -99,7 +99,7 @@ jobs:
           curl -vk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json" \
-            -F "scan_type=Generic Findings Import" \
+            -F "scan_type=Trufflehog3 Scan" \
             -F "product_name=TruffleHog Scan" \
             -F "engagement_name=TruffleHog CI/CD Scans" \
             -F "file=@reports/trufflehog-scan-report.json"
