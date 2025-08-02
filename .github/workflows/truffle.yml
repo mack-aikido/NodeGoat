@@ -47,13 +47,13 @@ jobs:
       - name: Run TruffleHog Git Scan
         run: |
           echo "Running TruffleHog Git scan (full history)..."
-          docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest git file:///pwd --json > reports/trufflehog-raw.json || true
+          docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest git file:///pwd --json > reports/trufflehog-scan-report.json || true
 
       # 6. Normalize TruffleHog JSON Output (NDJSON → JSON Array)
-      - name: Normalize TruffleHog JSON Output
-        run: |
-          echo "Converting TruffleHog NDJSON to JSON array..."
-          jq -s '.' reports/trufflehog-raw.json > reports/trufflehog-scan-report.json
+      #- name: Normalize TruffleHog JSON Output
+       # run: |
+        #  echo "Converting TruffleHog NDJSON to JSON array..."
+         # jq -s '.' reports/trufflehog-raw.json > reports/trufflehog-scan-report.json
 
       # 7. Create Product in DefectDojo
       - name: Create Product in DefectDojo
