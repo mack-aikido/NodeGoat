@@ -1,0 +1,54 @@
+name: TruffleHog - Deduplicated Reimport
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+jobs:
+  defectdojo-reimport:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout Repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # 2. Validate Secrets
+      - name: Validate Secrets
+        run: |
+          if [ -z "${{ secrets.DEFECTDOJO_URL }}" ] || [ -z "${{ secrets.DEFECTDOJO_TOKEN }}" ]; then
+            echo "❌ Missing required secrets"
+            exit 1
+          fi
+          echo "✅ Secrets validated."
+
+      # 3. Create Reports Folder
+      - name: Create reports directory
+        run: mkdir -p reports
+
+      # 4. Run TruffleHog Git Scan
+      - name: Run TruffleHog Git Scan
+        run: |
+          docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest git file:///pwd --json > reports/trufflehog-scan-report.json || true
+
+      # 5. Check for Findings
+      - name: Check Findings
+        id: check-findings
+        run: |
+          if ! grep -q '"DetectorName"' reports/trufflehog-scan-report.json; then
+            echo "skip_upload=true" >> $GITHUB_OUTPUT
+          fi
+
+      # 6. Fetch Product & Engagement IDs
+      - name: Fetch Product & Engagement IDs
+        id: ids
+        run: |
+          PRODUCT_NAME="TruffleHog Scan"
+          ENGAGEMENT_NAME="TruffleHog CI/CD Scans"
+
+          PRODUCT_ID=$(curl -sk "${{ secrets.DEFECTDOJO_URL }}/api/v2/products/?name=${PRODUCT_NAME// /%20}" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" | jq '.results[0].id')
