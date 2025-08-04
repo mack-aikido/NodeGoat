@@ -1,10 +1,10 @@
-name: TruffleHog - Create Product and engagement 
+name: TruffleHog - Initialize 
 
 on:
   push:
     branches:
-      - '**'   # Trigger on all branches
-  workflow_dispatch:  # Manual trigger
+      - '**'   # ✅ Trigger on all branches
+  workflow_dispatch:  # ✅ Manual trigger
 
 jobs:
   defectdojo-upload:
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout code repository
         uses: actions/checkout@v2
         with:
-          fetch-depth: 0  # Full history required for Git scan
+          fetch-depth: 0  # ✅ Full history required for Git scan
 
       # 2. Validate Secrets (Fail early if missing)
       - name: Validate Secrets
@@ -28,14 +28,14 @@ jobs:
             echo "❌ DEFECTDOJO_TOKEN is missing!"
             exit 1
           fi
-          echo "Secrets present."
+          echo "✅ Secrets present."
 
       # 3. Test API Connectivity (Insecure SSL)
       - name: Test API Connectivity (Insecure SSL)
         run: |
           API_URL="${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/"
           echo "Testing API URL (insecure SSL): $API_URL"
-          curl -vk $API_URL \
+          curl -sk $API_URL \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json"
 
@@ -49,19 +49,13 @@ jobs:
           echo "Running TruffleHog Git scan (full history)..."
           docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest git file:///pwd --json > reports/trufflehog-raw.json || true
 
-      # 6. Normalize TruffleHog JSON Output (NDJSON → JSON Array)
-    #  - name: Normalize TruffleHog JSON Output
-     #   run: |
-      #    echo "Converting TruffleHog NDJSON to JSON array..."
-       #   jq -s '.' reports/trufflehog-raw.json > reports/trufflehog-scan-report.json
-
-      # 7. Create Product in DefectDojo
+      # 6. Create Product in DefectDojo
       - name: Create Product in DefectDojo
         run: |
           PRODUCT_NAME="TruffleHog Scan"
-          PROD_TYPE_ID=1   # Adjust based on your DefectDojo Product Types
+          PROD_TYPE_ID=1   # ✅ Adjust based on your DefectDojo Product Types
           echo "Creating product '$PRODUCT_NAME'..."
-          curl -vk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/products/" \
+          curl -sk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/products/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d "{
@@ -70,33 +64,39 @@ jobs:
               \"prod_type\": ${PROD_TYPE_ID}
             }"
 
+      # 7. Retrieve Product ID Dynamically
+      - name: Retrieve Product ID
+        id: get-product
+        run: |
+          PRODUCT_NAME="TruffleHog Scan"
+          PRODUCT_ID=$(curl -sk "${{ secrets.DEFECTDOJO_URL }}/api/v2/products/?name=${PRODUCT_NAME// /%20}" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" | jq '.results[0].id')
+          echo "Product ID: $PRODUCT_ID"
+          echo "product_id=$PRODUCT_ID" >> $GITHUB_OUTPUT
+
       # 8. Create Engagement in DefectDojo
       - name: Create Engagement in DefectDojo
         run: |
           ENGAGEMENT_NAME="TruffleHog CI/CD Scans"
-          PRODUCT_ID=$(curl -sk -X GET "${{ secrets.DEFECTDOJO_URL }}/api/v2/products/?name=TruffleHog%20Scan" \
-            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" | jq '.results[0].id')
-
           TODAY=$(date +%Y-%m-%d)
-
-          echo "Creating engagement '$ENGAGEMENT_NAME' under product ID $PRODUCT_ID..."
-          curl -vk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/engagements/" \
+          echo "Creating engagement '$ENGAGEMENT_NAME' under product ID ${{ steps.get-product.outputs.product_id }}..."
+          curl -sk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/engagements/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d "{
               \"name\": \"${ENGAGEMENT_NAME}\",
               \"description\": \"Engagement for TruffleHog CI/CD secret scans.\",
-              \"product\": ${PRODUCT_ID},
+              \"product\": ${{ steps.get-product.outputs.product_id }},
               \"status\": \"In Progress\",
               \"target_start\": \"${TODAY}\",
               \"target_end\": \"${TODAY}\"
             }"
 
-      # 9. Import TruffleHog Scan to DefectDojo
+      # 9. Upload TruffleHog Scan Report to DefectDojo
       - name: Upload TruffleHog Report to DefectDojo
         run: |
           echo "Uploading TruffleHog scan report to DefectDojo..."
-          curl -vk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
+          curl -sk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json" \
             -F "scan_type=Trufflehog Scan" \
@@ -106,4 +106,4 @@ jobs:
 
       # 10. Confirm Completion
       - name: Show Confirmation
-        run: echo "TruffleHog scan uploaded, product & engagement created successfully."
+        run: echo "✅ TruffleHog scan uploaded, product & engagement created successfully."
