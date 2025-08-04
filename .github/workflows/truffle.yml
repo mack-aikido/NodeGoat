@@ -1,4 +1,4 @@
-name: DefectDojo Secret Scan Upload (TruffleHog - Auto Create Product & Engagement)
+name: TruffleHog - Create Product and engagement 
 
 on:
   push:
