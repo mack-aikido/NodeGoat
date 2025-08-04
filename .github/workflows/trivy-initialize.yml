@@ -52,7 +52,7 @@ jobs:
       # 6. Create Product in DefectDojo
       - name: Create Product in DefectDojo
         run: |
-          PRODUCT_NAME="Trivy Scan -2"
+          PRODUCT_NAME="Trivy"
           PROD_TYPE_ID=1   # Adjust to match your DefectDojo Product Type ID
           echo "Creating product '$PRODUCT_NAME'..."
           curl -vk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/products/" \
