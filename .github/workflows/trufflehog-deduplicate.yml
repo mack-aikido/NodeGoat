@@ -1,66 +1,95 @@
-name: TruffleHog - Deduplicated Reimport
+name: TruffleHog - Create Product and Engagement
 
 on:
-  push:
-    branches:
-      - '**'
   workflow_dispatch:
 
 jobs:
-  defectdojo-reimport:
+  defectdojo-init:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout Repository
+      # 1. Checkout Code
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
         with:
           fetch-depth: 0
 
-      # 2. Validate Secrets
+      # 2. Set Shared Variables
+      - name: Set Variables
+        run: |
+          echo "PRODUCT_NAME=TruffleHog Scan" >> $GITHUB_ENV
+          echo "ENGAGEMENT_NAME=TruffleHog CI/CD Scans" >> $GITHUB_ENV
+
+      # 3. Validate Secrets
       - name: Validate Secrets
         run: |
           if [ -z "${{ secrets.DEFECTDOJO_URL }}" ] || [ -z "${{ secrets.DEFECTDOJO_TOKEN }}" ]; then
             echo "❌ Missing required secrets"
             exit 1
           fi
+          echo "✅ Secrets validated."
 
-      # 3. Create Reports Folder
+      # 4. Test DefectDojo API Connectivity
+      - name: Test API Connectivity
+        run: |
+          curl -sk "${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+            -H "accept: application/json"
+
+      # 5. Create Reports Folder
       - name: Create reports directory
         run: mkdir -p reports
 
-      # 4. Run TruffleHog Scan
+      # 6. Run TruffleHog Git Scan
       - name: Run TruffleHog Git Scan
         run: |
-          docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest git file:///pwd --json > reports/trufflehog-scan-report.json || true
+          docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest git file:///pwd --json > reports/trufflehog-raw.json || true
 
-      # 5. Check for Findings
-      - name: Check Findings
-        id: check-findings
+      # 7. Create Product in DefectDojo
+      - name: Create Product
         run: |
-          if ! grep -q '"DetectorName"' reports/trufflehog-scan-report.json; then
-            echo "skip_upload=true" >> $GITHUB_OUTPUT
-          fi
+          curl -sk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/products/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"name\": \"${PRODUCT_NAME}\",
+              \"description\": \"Automated product for TruffleHog scans.\",
+              \"prod_type\": 1
+            }" || true
 
-      # 6. Reimport Scan Report Using Names
-      - name: Reimport Scan Report
-        if: steps.check-findings.outputs.skip_upload != 'true'
+      # 8. Retrieve Product ID
+      - name: Retrieve Product ID
+        id: get-product
         run: |
-          echo "Reimporting TruffleHog scan using engagement_name..."
-          HTTP_CODE=$(curl -s -o response.json -w "%{http_code}" -X POST \
-            "${{ secrets.DEFECTDOJO_URL }}/api/v2/reimport-scan/" \
+          PRODUCT_ID=$(curl -sk "${{ secrets.DEFECTDOJO_URL }}/api/v2/products/?name=${PRODUCT_NAME// /%20}" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" | jq '.results[0].id')
+          echo "product_id=$PRODUCT_ID" >> $GITHUB_OUTPUT
+
+      # 9. Create Engagement in DefectDojo
+      - name: Create Engagement
+        run: |
+          TODAY=$(date +%Y-%m-%d)
+          curl -sk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/engagements/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"name\": \"${ENGAGEMENT_NAME}\",
+              \"description\": \"Engagement for TruffleHog CI/CD secret scans.\",
+              \"product\": ${{ steps.get-product.outputs.product_id }},
+              \"status\": \"In Progress\",
+              \"target_start\": \"${TODAY}\",
+              \"target_end\": \"${TODAY}\"
+            }" || true
+
+      # 10. Upload Initial Scan Report
+      - name: Upload TruffleHog Report
+        run: |
+          curl -sk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json" \
             -F "scan_type=Trufflehog Scan" \
-            -F "product_name=TruffleHog Scan" \
-            -F "engagement_name=TruffleHog CI/CD Scans" \
-            -F "file=@reports/trufflehog-scan-report.json" \
-            -F "test_title=Automated TruffleHog Reimport" \
-            -F "deduplication_on_engagement=true")
+            -F "product_name=${PRODUCT_NAME}" \
+            -F "engagement_name=${ENGAGEMENT_NAME}" \
+            -F "file=@reports/trufflehog-raw.json"
 
-          echo "HTTP Response Code: $HTTP_CODE"
-          cat response.json
-          if [ "$HTTP_CODE" -ne 200 ] && [ "$HTTP_CODE" -ne 201 ]; then
-            echo "❌ Reimport failed with HTTP $HTTP_CODE"
-            exit 1
-          fi
+      # 11. Conf
