@@ -3,8 +3,8 @@ name: TruffleHog Reimport Scan
 on:
   push:
     branches:
-      - '**'         # ✅ Trigger on all branches
-  workflow_dispatch: # ✅ Manual trigger
+      - '**'         # Trigger on all branches
+  workflow_dispatch: # Manual trigger
 
 jobs:
   defectdojo-reimport:
@@ -15,9 +15,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # ✅ Full history required for TruffleHog git scan
+          fetch-depth: 0
 
-      # 2. Validate Required Secrets
+      # 2. Validate Secrets
       - name: Validate Secrets
         run: |
           if [ -z "${{ secrets.DEFECTDOJO_URL }}" ]; then
@@ -30,26 +30,17 @@ jobs:
           fi
           echo "✅ Secrets validated."
 
-      # 3. Test DefectDojo API Connectivity
-      - name: Test DefectDojo API
-        run: |
-          echo "Testing API endpoint: ${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/"
-          curl -s -o /dev/null -w "%{http_code}\n" \
-            "${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/" \
-            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
-            -H "accept: application/json"
-
-      # 4. Create Reports Folder
+      # 3. Create Reports Folder
       - name: Create reports directory
         run: mkdir -p reports
 
-      # 5. Run TruffleHog Git Scan
+      # 4. Run TruffleHog Scan
       - name: Run TruffleHog Git Scan
         run: |
           echo "Running TruffleHog Git scan..."
           docker run --rm -v $PWD:/pwd ghcr.io/trufflesecurity/trufflehog:latest git file:///pwd --json > reports/trufflehog-scan-report.json || true
 
-      # 6. Check TruffleHog Findings (Skip upload if empty)
+      # 5. Skip Upload if No Findings
       - name: Check for TruffleHog Findings
         id: check-findings
         run: |
@@ -58,7 +49,7 @@ jobs:
             echo "skip_upload=true" >> $GITHUB_OUTPUT
           fi
 
-      # 7. Reimport Report into DefectDojo (Deduplicated)
+      # 6. Reimport Report into DefectDojo
       - name: Reimport Scan Report to DefectDojo
         if: steps.check-findings.outputs.skip_upload != 'true'
         run: |
@@ -68,12 +59,13 @@ jobs:
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json" \
             -F "scan_type=Trufflehog Scan" \
+            -F "product_name=TruffleHog Scan" \    # ✅ Add product context
             -F "engagement=1" \
             -F "file=@reports/trufflehog-scan-report.json" \
             -F "test_title=Automated TruffleHog Reimport" \
             -F "deduplication_on_engagement=true"
 
-      # 8. Show API Response
+      # 7. Debug API Response
       - name: Show API Response
         if: steps.check-findings.outputs.skip_upload != 'true'
         run: |
