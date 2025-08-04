@@ -28,12 +28,12 @@ jobs:
           fi
           echo "✅ Secrets validated."
 
-      # 3. Test API Connectivity (Insecure SSL allowed for flexibility)
+      # 3. Test API Connectivity
       - name: Test DefectDojo API Connectivity
         run: |
           API_URL="${{ secrets.DEFECTDOJO_URL }}/api/v2/system_settings/"
           echo "Testing API endpoint: $API_URL"
-          curl -vk $API_URL \
+          curl -sk $API_URL \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json"
 
@@ -55,7 +55,7 @@ jobs:
           PRODUCT_NAME="Trivy"
           PROD_TYPE_ID=1   # Adjust to match your DefectDojo Product Type ID
           echo "Creating product '$PRODUCT_NAME'..."
-          curl -vk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/products/" \
+          curl -sk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/products/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d "{
@@ -64,33 +64,39 @@ jobs:
               \"prod_type\": ${PROD_TYPE_ID}
             }"
 
-      # 7. Create Engagement in DefectDojo
+      # 7. Retrieve Product ID (Correct Lookup)
+      - name: Retrieve Product ID
+        id: get-product
+        run: |
+          PRODUCT_NAME="Trivy"
+          PRODUCT_ID=$(curl -sk -X GET "${{ secrets.DEFECTDOJO_URL }}/api/v2/products/?name=${PRODUCT_NAME}" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" | jq '.results[0].id')
+          echo "Product ID: $PRODUCT_ID"
+          echo "product_id=$PRODUCT_ID" >> $GITHUB_OUTPUT
+
+      # 8. Create Engagement in DefectDojo
       - name: Create Engagement in DefectDojo
         run: |
           ENGAGEMENT_NAME="Trivy CI/CD Scans"
-          PRODUCT_ID=$(curl -sk -X GET "${{ secrets.DEFECTDOJO_URL }}/api/v2/products/?name=Trivy%20Scan" \
-            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" | jq '.results[0].id')
-
           TODAY=$(date +%Y-%m-%d)
-
-          echo "Creating engagement '$ENGAGEMENT_NAME' under product ID $PRODUCT_ID..."
-          curl -vk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/engagements/" \
+          echo "Creating engagement '$ENGAGEMENT_NAME' under product ID ${{ steps.get-product.outputs.product_id }}..."
+          curl -sk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/engagements/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d "{
               \"name\": \"${ENGAGEMENT_NAME}\",
               \"description\": \"Engagement for Trivy CI/CD vulnerability scans.\",
-              \"product\": ${PRODUCT_ID},
+              \"product\": ${{ steps.get-product.outputs.product_id }},
               \"status\": \"In Progress\",
               \"target_start\": \"${TODAY}\",
               \"target_end\": \"${TODAY}\"
             }"
 
-      # 8. Import Trivy Scan Report to DefectDojo
+      # 9. Import Trivy Scan Report to DefectDojo
       - name: Import Trivy Scan Report to DefectDojo
         run: |
           echo "Uploading Trivy scan report to DefectDojo..."
-          curl -vk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
+          curl -sk -X POST "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -H "accept: application/json" \
             -F "scan_type=Trivy Scan" \
@@ -98,6 +104,6 @@ jobs:
             -F "engagement_name=Trivy CI/CD Scans" \
             -F "file=@reports/trivy-scan-report.json"
 
-      # 9. Confirmation
+      # 10. Confirmation
       - name: Confirm Completion
-        run: echo "Trivy product, engagement, and scan report created successfully in DefectDojo."
+        run: echo "✅ Trivy product, engagement, and scan uploaded successfully."
