@@ -52,3 +52,44 @@ jobs:
 
           PRODUCT_ID=$(curl -sk "${{ secrets.DEFECTDOJO_URL }}/api/v2/products/?name=${PRODUCT_NAME// /%20}" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" | jq '.results[0].id')
+          echo "Product ID: $PRODUCT_ID"
+
+          ENGAGEMENT_ID=$(curl -sk "${{ secrets.DEFECTDOJO_URL }}/api/v2/engagements/?name=${ENGAGEMENT_NAME// /%20}&product=$PRODUCT_ID" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" | jq '.results[0].id')
+          echo "Engagement ID: $ENGAGEMENT_ID"
+
+          if [ "$PRODUCT_ID" = "null" ] || [ -z "$PRODUCT_ID" ]; then
+            echo "❌ Product not found in DefectDojo"
+            exit 1
+          fi
+          if [ "$ENGAGEMENT_ID" = "null" ] || [ -z "$ENGAGEMENT_ID" ]; then
+            echo "❌ Engagement not found in DefectDojo for product $PRODUCT_ID"
+            exit 1
+          fi
+
+          echo "product_id=$PRODUCT_ID" >> $GITHUB_OUTPUT
+          echo "engagement_id=$ENGAGEMENT_ID" >> $GITHUB_OUTPUT
+
+      # 7. Reimport Scan Report
+      - name: Reimport Scan Report
+        if: steps.check-findings.outputs.skip_upload != 'true'
+        run: |
+          echo "Reimporting TruffleHog scan to DefectDojo..."
+          HTTP_CODE=$(curl -s -o response.json -w "%{http_code}" -X POST \
+            "${{ secrets.DEFECTDOJO_URL }}/api/v2/reimport-scan/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+            -H "accept: application/json" \
+            -F "scan_type=Trufflehog Scan" \
+            -F "product_name=TruffleHog Scan" \             # ✅ Explicit
+            -F "product_id=${{ steps.ids.outputs.product_id }}" \ # ✅ Explicit
+            -F "engagement=${{ steps.ids.outputs.engagement_id }}" \
+            -F "file=@reports/trufflehog-scan-report.json" \
+            -F "test_title=Automated TruffleHog Reimport" \
+            -F "deduplication_on_engagement=true")
+
+          echo "HTTP Response Code: $HTTP_CODE"
+          cat response.json
+          if [ "$HTTP_CODE" -ne 200 ] && [ "$HTTP_CODE" -ne 201 ]; then
+            echo "❌ Reimport failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
